@@ -20,20 +20,19 @@ DELETE FROM patient WHERE patient_id BETWEEN '0576' AND '0599';
 -- =====================================================================
 
 -- ---------------------------------------------------------------------
--- A0. Snapshot BEFORE
+-- A0. Snapshot BEFORE (one row: patients | reports | next report_id)
 -- ---------------------------------------------------------------------
 SET SESSION information_schema_stats_expiry = 0;   -- so AUTO_INCREMENT below is current
 
-SELECT COUNT(*) AS patients FROM patient;
-SELECT COUNT(*) AS reports  FROM radiology_report;
-SELECT * FROM patient          WHERE patient_id BETWEEN '0576' AND '0599';
-SELECT * FROM radiology_report WHERE patient_id BETWEEN '0576' AND '0599';
-SELECT AUTO_INCREMENT FROM information_schema.TABLES
- WHERE TABLE_SCHEMA = 'mri_radiology_db' AND TABLE_NAME = 'radiology_report';
+SELECT
+  (SELECT COUNT(*) FROM patient)          AS patients,
+  (SELECT COUNT(*) FROM radiology_report) AS reports,
+  (SELECT AUTO_INCREMENT FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = 'mri_radiology_db' AND TABLE_NAME = 'radiology_report') AS next_report_id;
 
 
 -- ---------------------------------------------------------------------
--- A1. COMMIT test
+-- A1. COMMIT test                                   (report: Test 1)
 -- ---------------------------------------------------------------------
 START TRANSACTION;
 
@@ -48,19 +47,43 @@ SELECT p.patient_id, r.report_id, r.clinician_notes
  WHERE p.patient_id = '0576';
 
 COMMIT;
--- re-run A0: both counts +1, 0576 present in both tables
+
+-- snapshot AFTER: patients +1, reports +1
+SELECT
+  (SELECT COUNT(*) FROM patient)          AS patients,
+  (SELECT COUNT(*) FROM radiology_report) AS reports,
+  (SELECT AUTO_INCREMENT FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = 'mri_radiology_db' AND TABLE_NAME = 'radiology_report') AS next_report_id;
 
 
 -- ---------------------------------------------------------------------
--- A2. Manual ROLLBACK test (the user cancels)
+-- A2. Manual ROLLBACK test (the user cancels)       (report: Test 2)
 -- ---------------------------------------------------------------------
+-- snapshot BEFORE
+SELECT
+  (SELECT COUNT(*) FROM patient)          AS patients,
+  (SELECT COUNT(*) FROM radiology_report) AS reports,
+  (SELECT AUTO_INCREMENT FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = 'mri_radiology_db' AND TABLE_NAME = 'radiology_report') AS next_report_id;
+
 START TRANSACTION;
 INSERT INTO patient (patient_id) VALUES ('0577');
 INSERT INTO radiology_report (patient_id, clinician_notes) VALUES ('0577', 'Draft report - to be cancelled');
-SELECT * FROM radiology_report WHERE patient_id = '0577';   -- 1 row (inside the transaction)
+
+-- inside the transaction: 1 row
+SELECT p.patient_id, r.report_id, r.clinician_notes
+  FROM patient p JOIN radiology_report r ON r.patient_id = p.patient_id
+ WHERE p.patient_id = '0577';
+
 ROLLBACK;
-SELECT * FROM patient          WHERE patient_id = '0577';   -- 0 rows
-SELECT * FROM radiology_report WHERE patient_id = '0577';   -- 0 rows
+
+-- snapshot AFTER: counts unchanged, 0577 gone (next report_id still moved on)
+SELECT
+  (SELECT COUNT(*) FROM patient)          AS patients,
+  (SELECT COUNT(*) FROM radiology_report) AS reports,
+  (SELECT COUNT(*) FROM patient WHERE patient_id = '0577') AS patient_0577,
+  (SELECT AUTO_INCREMENT FROM information_schema.TABLES
+    WHERE TABLE_SCHEMA = 'mri_radiology_db' AND TABLE_NAME = 'radiology_report') AS next_report_id;
 
 
 -- ---------------------------------------------------------------------
@@ -185,6 +208,7 @@ ROLLBACK;                                                               -- a COM
 
 -- ---------------------------------------------------------------------
 -- B4. Safe design: procedure that validates and rolls back on any error
+--                                                   (report: Test 3)
 -- ---------------------------------------------------------------------
 DROP PROCEDURE IF EXISTS amend_report_and_study;
 DELIMITER //
@@ -243,4 +267,5 @@ CALL amend_report_and_study('0576', @sid,
 SELECT r.clinician_notes, s.study_name, s.study_date
   FROM radiology_report r JOIN study s ON s.patient_id = r.patient_id
  WHERE r.patient_id = '0576';                                           -- new notes, ..._20261012_..., 2026-10-12
+
 
