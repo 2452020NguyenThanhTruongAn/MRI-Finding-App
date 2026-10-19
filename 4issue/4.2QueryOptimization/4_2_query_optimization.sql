@@ -1,27 +1,4 @@
--- =====================================================================
--- Phase 4.2 - Query Processing & Optimization
--- DBMS : MySQL 8.0.18+ (can EXPLAIN ANALYZE)
--- DB   : mri_radiology_db (da nap du lieu bang `python main.py`)
---
--- CACH DUNG
---   * Chay TUNG KHOI (boi den -> Ctrl+Enter trong MySQL Workbench),
---     KHONG chay ca file mot lan, vi can luu output cua tung EXPLAIN ANALYZE.
---   * Moi cau EXPLAIN ANALYZE tra ve 1 o van ban (cot "EXPLAIN"): chuot phai
---     o do -> "Copy Field" (hoac "Open Value in Viewer") roi dan vao docs.
---   * Chay moi EXPLAIN ANALYZE 3 lan, lay lan cuoi (du lieu da nam trong
---     buffer pool) de so sanh cong bang.
---   * Thay '0230' / 'T2' / 'SAG' bang gia tri khac bang Find & Replace.
---   * File nay KHONG duoc nap boi main.py; khong dua vao schema.sql.
---     Cac index thu nghiem o muc 4 se duoc DROP o muc 5 de tra schema ve nhu cu.
---
--- HAI QUERY DUOC CHON (trich tu stored procedure Application 1 + 2)
---   Q1 = get_patient_mri(patient_id)
---        4 bang LEFT JOIN + report, ORDER BY 3 cot thuoc 3 bang khac nhau
---   Q2 = search_patient_mri(patient_id, sequence_type, orientation)
---        4 bang JOIN + 2 dieu kien loc tren series
--- Luu y: EXPLAIN ANALYZE khong chay duoc tren lenh CALL, nen copy thang
--- phan SELECT cua procedure ra (nhu ben duoi).
--- =====================================================================
+
 
 
 -- =====================================================================

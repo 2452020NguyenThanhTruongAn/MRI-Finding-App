@@ -3,3 +3,4 @@ Radiologists Report.xlsx
 01_Database/__pycache__/
 02_Application/_pycache_/
 .venv
+.env
